@@ -15,13 +15,39 @@ local cache = {}
 local low_level = {}
 local cartographer = {}
 
+low_level.create_filter = function(obj)
+  local ui = impromptu.filter{
+    title = "▢ Select project [" .. obj.address .. "]",
+    options = {},
+    handler = function(session, value)
+      return obj.handler(session, value)
+    end
+  }
+  local ui_id = ui.session_id
+  cache[ui_id] = {
+    buffer = {},
+    ui = ui,
+  }
 
-low_level.defn = function(ui_id)
-  local name = "Handle" .. ui_id
+  local job = nvim.nvim_call_function("jobstart", {
+      obj.search_command, {
+        on_stdout = low_level.defn("handle", ui_id),
+        cwd = obj.address
+      }
+    }
+  )
+
+  cache[ui_id].job = job
+
+  return cache[ui_id]
+end
+
+low_level.defn = function(fn_name, ui_id)
+  local name = "Cart_" .. fn_name .. ui_id
   -- TODO fix super hack
   local fn = {
   'function! ' .. name .. '(c, dt, s)',
-    'call luaeval("require(\'cartographer\').handle(' .. ui_id .. ', _A)", a:dt)',
+    'call luaeval("require(\'cartographer\').' .. fn_name .. '(' .. ui_id .. ', _A)", a:dt)',
   'endfunction'
   }
 
@@ -35,60 +61,39 @@ cartographer.config = function(obj)
 end
 
 cartographer.handle = function(ui_id, dt)
-  for _, v in ipairs(dt) do
-    cache[ui_id].ui:update{description = v}
+  if cache[ui_id].ui.destroyed then
+    nvim.nvim_call_function("chanclose", {cache[ui_id].job})
+  else
+    for _, line in ipairs(dt) do
+      cache[ui_id].ui:update{description = line}
+    end
   end
 end
 
 cartographer.project = function()
-  local ui = impromptu.filter{
-    title = "▢ Select project [" .. configuration.project.root .. "]",
-    options = {},
+  low_level.create_filter{
+    address = configuration.project.root,
+    search_command = configuration.project.search_command,
     handler = function(_, ret)
       nvim.nvim_command("tcd " .. configuration.project.root .. "/" .. ret.description)
       return true
-    end
+    end,
   }
-  local ui_id = ui.session_id
-  cache[ui_id] = {
-    ui = ui,
-  }
-
-  local job = nvim.nvim_call_function("jobstart", {
-      configuration.project.search_command, {
-        on_stdout = low_level.defn(ui_id),
-        cwd = configuration.project.root
-      }
-    }
-  )
-
-  cache[ui_id].job = job
 end
 
 cartographer.files = function(open_cmd)
+  local cb = nvim.nvim_get_current_buf()
+  local winnr = nvim.nvim_call_function("bufwinnr", {cb})
   local cwd = nvim.nvim_call_function("getcwd", {})
-  local ui = impromptu.filter{
-    title = "▢ Select file [" .. cwd .. "]",
-    options = {},
+
+  low_level.create_filter{
+    address = cwd,
+    search_command = configuration.files.search_command,
     handler = function(_, ret)
-      nvim.nvim_command((open_cmd or "edit") .. " " .. cwd .. "/" .. ret.description)
+      nvim.nvim_command(winnr .. "wincmd w | " .. (open_cmd or "edit") .. " " .. cwd .. "/" .. ret.description)
       return true
     end
   }
-  local ui_id = ui.session_id
-  cache[ui_id] = {
-    ui = ui,
-  }
-
-  local job = nvim.nvim_call_function("jobstart", {
-      configuration.files.search_command, {
-        on_stdout = low_level.defn(ui_id),
-        cwd = cwd
-      }
-    }
-  )
-
-  cache[ui_id].job = job
 end
 
 cartographer.dbg = function()
