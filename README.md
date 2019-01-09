@@ -2,6 +2,17 @@
 
 Simplify project navigation within neovim.
 
+## Install
+
+To install it, add the following to your init.vim:
+
+```viml
+
+Plug 'vigemus/impromptu.nvim' " Dependency needed for providing the selection prompt
+Plug 'vigemus/cartographer.nvim'
+
+```
+
 ## What's this?
 
 Cartographer is the helper tool to allow you navigating through your project and finding your files fast.
@@ -49,17 +60,6 @@ As cartographer and [impromptu.nvim](https://github.com/Vigemus/impromptu.nvim) 
 
 * Negative searching/filtering out
 * Fuzzy searching
-
-## Install
-
-To install it, add the following to your init.vim:
-
-```viml
-
-Plug 'vigemus/impromptu.nvim' " Dependency needed for providing the selection prompt
-Plug 'vigemus/cartographer.nvim'
-
-```
 
 ## How to use it?
 

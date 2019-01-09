@@ -122,7 +122,10 @@ cartographer.todo = function(open_cmd)
     address = cwd,
     search_command = configuration.rx.search_command .. " '(TODO|FIXME)'",
     handler = function(_, ret)
-      nvim.nvim_command(winnr .. "wincmd w | " .. (open_cmd or "edit") .. '+' .. ret.ln .. " " .. cwd .. "/" .. ret.fpath)
+      nvim.nvim_command(
+        winnr .. "wincmd w | " ..
+        (open_cmd or "edit") .. '+' .. ret.ln .. " " .. cwd .. "/" .. ret.fpath
+      )
       return true
     end,
     local_handler = "handle_vimgrep"
@@ -138,7 +141,10 @@ cartographer.rx = function(regex, open_cmd)
     address = cwd,
     search_command = configuration.rx.search_command .. " '" .. regex .. "'",
     handler = function(_, ret)
-      nvim.nvim_command(winnr .. "wincmd w | " .. (open_cmd or "edit") .. '+' .. ret.ln .. " " .. cwd .. "/" .. ret.fpath)
+      nvim.nvim_command(
+        winnr .. "wincmd w | " ..
+        (open_cmd or "edit") .. '+' .. ret.ln .. " " .. cwd .. "/" .. ret.fpath
+      )
       return true
     end,
     local_handler = "handle_vimgrep"
