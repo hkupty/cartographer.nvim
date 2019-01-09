@@ -9,6 +9,9 @@ local configuration = {
   },
   files = {
     search_command = "find -type f"
+  },
+  rx = {
+    search_command = "find . -not -path '*/\\.*' -type f | xargs grep -nHE "
   }
 }
 local cache = {}
@@ -19,9 +22,7 @@ low_level.create_filter = function(obj)
   local ui = impromptu.filter{
     title = "▢ Select project [" .. obj.address .. "]",
     options = {},
-    handler = function(session, value)
-      return obj.handler(session, value)
-    end
+    handler = obj.handler
   }
   local ui_id = ui.session_id
   cache[ui_id] = {
@@ -31,7 +32,7 @@ low_level.create_filter = function(obj)
 
   local job = nvim.nvim_call_function("jobstart", {
       obj.search_command, {
-        on_stdout = low_level.defn("handle", ui_id),
+        on_stdout = low_level.defn((obj.local_handler or "handle"), ui_id),
         cwd = obj.address
       }
     }
@@ -70,6 +71,22 @@ cartographer.handle = function(ui_id, dt)
   end
 end
 
+cartographer.handle_vimgrep = function(ui_id, dt)
+  if cache[ui_id].ui.destroyed then
+    nvim.nvim_call_function("chanclose", {cache[ui_id].job})
+  else
+    for _, line in ipairs(dt) do
+      local match = line:gmatch("[^:]+")
+      cache[ui_id].ui:update{
+        description = line,
+        fpath = match(),
+        ln = match(),
+        column = match()
+      }
+    end
+  end
+end
+
 cartographer.project = function()
   low_level.create_filter{
     address = configuration.project.root,
@@ -93,6 +110,38 @@ cartographer.files = function(open_cmd)
       nvim.nvim_command(winnr .. "wincmd w | " .. (open_cmd or "edit") .. " " .. cwd .. "/" .. ret.description)
       return true
     end
+  }
+end
+
+cartographer.todo = function(open_cmd)
+  local cb = nvim.nvim_get_current_buf()
+  local winnr = nvim.nvim_call_function("bufwinnr", {cb})
+  local cwd = nvim.nvim_call_function("getcwd", {})
+
+  low_level.create_filter{
+    address = cwd,
+    search_command = configuration.rx.search_command .. " '(TODO|FIXME)'",
+    handler = function(_, ret)
+      nvim.nvim_command(winnr .. "wincmd w | " .. (open_cmd or "edit") .. '+' .. ret.ln .. " " .. cwd .. "/" .. ret.fpath)
+      return true
+    end,
+    local_handler = "handle_vimgrep"
+  }
+end
+
+cartographer.rx = function(regex, open_cmd)
+  local cb = nvim.nvim_get_current_buf()
+  local winnr = nvim.nvim_call_function("bufwinnr", {cb})
+  local cwd = nvim.nvim_call_function("getcwd", {})
+
+  low_level.create_filter{
+    address = cwd,
+    search_command = configuration.rx.search_command .. " '" .. regex .. "'",
+    handler = function(_, ret)
+      nvim.nvim_command(winnr .. "wincmd w | " .. (open_cmd or "edit") .. '+' .. ret.ln .. " " .. cwd .. "/" .. ret.fpath)
+      return true
+    end,
+    local_handler = "handle_vimgrep"
   }
 end
 
