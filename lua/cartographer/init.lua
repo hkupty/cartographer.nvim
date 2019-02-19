@@ -10,6 +10,9 @@ local configuration = {
   files = {
     search_command = "find -type f"
   },
+  folder = {
+    search_command = "find -type d -not -path './.git/*' -not -name '\\.*'"
+  },
   rx = {
     search_command = "find . -not -path '*/\\.*' -type f | xargs grep -nHE "
   }
@@ -18,13 +21,26 @@ local cache = {}
 local low_level = {}
 local cartographer = {}
 
+-- TODO hacke
+cartographer.cache = cache
+
 low_level.create_filter = function(obj)
-  local ui = impromptu.filter{
+  local impromptu_opts = {
     title = "▢ Select project [" .. obj.address .. "]",
     options = {},
+    mappings = obj.mappings,
     handler = obj.handler
   }
+  local ui
+  if obj.session ~= nil then
+    ui = impromptu.new.filter(impromptu_opts)
+    obj.session:stack(ui)
+  else
+    ui = impromptu.filter(impromptu_opts)
+  end
   local ui_id = ui.session_id
+  local stdout_handler = low_level.defn((obj.local_handler or "handle"), ui_id)
+
   cache[ui_id] = {
     buffer = {},
     ui = ui,
@@ -32,7 +48,7 @@ low_level.create_filter = function(obj)
 
   local job = nvim.nvim_call_function("jobstart", {
       obj.search_command, {
-        on_stdout = low_level.defn((obj.local_handler or "handle"), ui_id),
+        on_stdout = stdout_handler,
         cwd = obj.address
       }
     }
@@ -80,8 +96,7 @@ cartographer.handle_vimgrep = function(ui_id, dt)
       cache[ui_id].ui:update{
         description = line,
         fpath = match(),
-        ln = match(),
-        column = match()
+        ln = match()
       }
     end
   end
@@ -110,6 +125,15 @@ cartographer.files = function(open_cmd)
       nvim.nvim_command(winnr .. "wincmd w | " .. (open_cmd or "edit") .. " " .. cwd .. "/" .. ret.description)
       return true
     end
+  }
+end
+
+cartographer.do_at = function(handler)
+  local cwd = nvim.nvim_call_function("getcwd", {})
+  low_level.create_filter{
+    address = cwd,
+    search_command = configuration.folder.search_command,
+    handler = handler
   }
 end
 
@@ -151,6 +175,13 @@ cartographer.rx = function(regex, open_cmd)
   }
 end
 
+cartographer.cd = function()
+  local cwd = nvim.nvim_call_function("getcwd", {})
+  cartographer.do_at(function(_, ret)
+      nvim.nvim_command("tcd " .. cwd .. "/" .. ret.description)
+      return true
+  end)
+end
 cartographer.dbg = function()
   print(require("inspect")(cache))
 end
