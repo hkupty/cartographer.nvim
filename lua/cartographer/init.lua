@@ -26,7 +26,7 @@ cartographer.cache = cache
 
 low_level.create_filter = function(obj)
   local impromptu_opts = {
-    title = "▢ " .. obj.title .. " [" .. obj.address .. "]",
+    title = "🧭 " .. obj.title .. " [" .. obj.address .. "]",
     options = {},
     mappings = obj.mappings,
     handler = obj.handler
