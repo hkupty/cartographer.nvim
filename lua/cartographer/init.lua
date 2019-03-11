@@ -26,7 +26,7 @@ cartographer.cache = cache
 
 low_level.create_filter = function(obj)
   local impromptu_opts = {
-    title = "▢ Select project [" .. obj.address .. "]",
+    title = "▢ " .. obj.title .. " [" .. obj.address .. "]",
     options = {},
     mappings = obj.mappings,
     handler = obj.handler
@@ -104,6 +104,7 @@ end
 
 cartographer.project = function()
   low_level.create_filter{
+    title = "Select project",
     address = configuration.project.root,
     search_command = configuration.project.search_command,
     handler = function(_, ret)
@@ -119,6 +120,7 @@ cartographer.files = function(open_cmd)
   local cwd = nvim.nvim_call_function("getcwd", {})
 
   low_level.create_filter{
+    title = "Select file",
     address = cwd,
     search_command = configuration.files.search_command,
     handler = function(_, ret)
@@ -131,6 +133,7 @@ end
 cartographer.do_at = function(handler)
   local cwd = nvim.nvim_call_function("getcwd", {})
   low_level.create_filter{
+    title = "Select folder",
     address = cwd,
     search_command = configuration.folder.search_command,
     handler = handler
@@ -143,8 +146,9 @@ cartographer.todo = function(open_cmd)
   local cwd = nvim.nvim_call_function("getcwd", {})
 
   low_level.create_filter{
+    title = "Project TODOs",
     address = cwd,
-    search_command = configuration.rx.search_command .. " '(TODO|FIXME)'",
+    search_command = configuration.rx.search_command .. " '(TODO|HACK|FIXME)'",
     handler = function(_, ret)
       nvim.nvim_command(
         winnr .. "wincmd w | " ..
@@ -162,6 +166,7 @@ cartographer.rx = function(regex, open_cmd)
   local cwd = nvim.nvim_call_function("getcwd", {})
 
   low_level.create_filter{
+    title = "Find",
     address = cwd,
     search_command = configuration.rx.search_command .. " '" .. regex .. "'",
     handler = function(_, ret)
@@ -182,6 +187,7 @@ cartographer.cd = function()
       return true
   end)
 end
+
 cartographer.dbg = function()
   print(require("inspect")(cache))
 end
