@@ -38,4 +38,55 @@ util.safe_merge = function(to, from)
   return util.deep_merge(util.clone(to), from)
 end
 
+util.filter = function(predicate, iter_or_coll, coll, i)
+  if type(iter_or_coll) == "table" then
+    coll = iter_or_coll
+    iter_or_coll = next
+    i = nil
+  end
+
+  local function inner(seq, ix)
+    local nix, ret = iter_or_coll(seq, ix)
+    if ret == nil then
+      return
+    elseif predicate(ret) then
+      return nix, ret
+    else
+      return inner(seq, nix)
+    end
+  end
+  return inner, coll, i
+end
+
+util.map = function(fn, iter_or_coll, coll, i)
+  if type(iter_or_coll) == "table" then
+    coll = iter_or_coll
+    iter_or_coll = next
+    i = nil
+  end
+
+  local function inner(seq, ix)
+    local nix, ret = iter_or_coll(seq, ix)
+    if ret == nil then
+      return
+    else
+      return nix, fn(ret)
+    end
+  end
+
+  return inner, coll, i
+end
+
+util.realize = function(iter, coll)
+  local tbl = {}
+  for ix, v in iter, coll do
+    tbl[ix] = v
+  end
+  return tbl
+end
+
+util.starts_with = function(prefix, str)
+  return prefix == "" or string.sub(str, 1, #prefix) == prefix
+end
+
 return util

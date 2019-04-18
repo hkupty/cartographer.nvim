@@ -24,7 +24,7 @@ local cartographer = {}
 -- TODO hacke
 cartographer.cache = cache
 
-low_level.create_filter = function(obj)
+low_level.new_impromptu_filter = function(obj)
   local impromptu_opts = {
     title = "🧭 " .. obj.title .. " [" .. obj.address .. "]",
     options = {},
@@ -39,12 +39,19 @@ low_level.create_filter = function(obj)
     ui = impromptu.filter(impromptu_opts)
   end
   local ui_id = ui.session_id
-  local stdout_handler = low_level.defn((obj.local_handler or "handle"), ui_id)
 
   cache[ui_id] = {
     buffer = {},
     ui = ui,
   }
+
+  return ui_id
+
+end
+
+low_level.create_filter = function(obj)
+  local ui_id = low_level.new_impromptu_filter(obj)
+  local stdout_handler = low_level.defn((obj.local_handler or "handle"), ui_id)
 
   local job = nvim.nvim_call_function("jobstart", {
       obj.search_command, {
@@ -128,6 +135,61 @@ cartographer.files = function(open_cmd)
       return true
     end
   }
+end
+
+cartographer.local_buffers = function()
+  local cb = nvim.nvim_get_current_buf()
+  local winnr = nvim.nvim_call_function("bufwinnr", {cb})
+  local cwd = nvim.nvim_call_function("getcwd", {})
+  local path_starts_with = function(bufnr)
+
+    return util.starts_with(cwd, vim.api.nvim_call_function("expand", {"#" .. bufnr .. ":p"}))
+  end
+
+  local ui_id = low_level.new_impromptu_filter{
+    title = "Local buffers",
+    address = cwd,
+    handler = function(_, ret)
+      nvim.nvim_command(winnr .. "wincmd w | b" .. ret.bufnr)
+      return true
+    end
+
+  }
+
+  for _, buffer in util.filter(path_starts_with,
+      util.filter(vim.api.nvim_buf_is_loaded,
+        vim.api.nvim_list_bufs()
+    )) do
+    cache[ui_id].ui:update{
+      description = vim.api.nvim_call_function("expand", {"#" .. buffer .. ":p"}),
+      bufnr = buffer
+    }
+  end
+
+end
+
+cartographer.buffers = function()
+  local cb = nvim.nvim_get_current_buf()
+  local winnr = nvim.nvim_call_function("bufwinnr", {cb})
+  local cwd = nvim.nvim_call_function("getcwd", {})
+
+  local ui_id = low_level.new_impromptu_filter{
+    title = "Local buffers",
+    address = cwd,
+    handler = function(_, ret)
+      nvim.nvim_command(winnr .. "wincmd w | b" .. ret.bufnr)
+      return true
+    end
+
+  }
+
+  for _, buffer in util.filter(vim.api.nvim_buf_is_loaded, vim.api.nvim_list_bufs()) do
+    cache[ui_id].ui:update{
+      description = vim.api.nvim_call_function("expand", {"#" .. buffer .. ":p"}),
+      bufnr = buffer
+    }
+  end
+
 end
 
 cartographer.do_at = function(handler)
