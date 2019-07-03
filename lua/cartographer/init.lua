@@ -15,6 +15,9 @@ local configuration = {
   },
   rx = {
     search_command = "find . -not -path '*/\\.*' -type f | xargs grep -nHE "
+  },
+  search = {
+    search_command = "find . -not -path '*/\\.*' -type f | xargs grep -nHEF --"
   }
 }
 local cache = {}
@@ -37,8 +40,13 @@ low_level.create_filter = function(obj)
     obj.session:stack(ui)
   else
     ui = impromptu.filter(impromptu_opts)
+    obj.session = ui
   end
-  local ui_id = ui.session_id
+  local ui_id = obj.session.session_id
+
+  obj.session:set("cartographer_ui_id", ui_id)
+  obj.session:set("cartographer_address", obj.address)
+
   local stdout_handler = low_level.defn((obj.local_handler or "handle"), ui_id)
 
   cache[ui_id] = {
@@ -132,12 +140,33 @@ end
 
 cartographer.do_at = function(handler)
   local cwd = nvim.nvim_call_function("getcwd", {})
-  low_level.create_filter{
-    title = "Select folder",
-    address = cwd,
-    search_command = configuration.folder.search_command,
-    handler = handler
-  }
+  local payload
+
+  local function this_handler(session, selected)
+    if selected == "__up_dir" then
+      session.hls = {}
+      vim.api.nvim_call_function("chanclose", {cache[session.cartographer_ui_id].job})
+      low_level.create_filter(payload(session.cartographer_address .. "/..", session))
+      return false
+    else
+      return handler(session, selected)
+    end
+  end
+  payload = function(address, session)
+    local ret ={
+      title = "Select folder",
+      search_command = configuration.folder.search_command,
+      address = address,
+      handler = this_handler,
+      mappings = {['<C-h>'] = "__up_dir"}
+    }
+    if session ~= nil then
+      ret.session = session
+    end
+    return ret
+  end
+
+  low_level.create_filter(payload(cwd))
 end
 
 cartographer.todo = function(open_cmd)
@@ -186,6 +215,29 @@ cartographer.cd = function()
       nvim.nvim_command("tcd " .. cwd .. "/" .. ret.description)
       return true
   end)
+end
+
+cartographer.search = function(parameter, open_cmd, winnr)
+  if winnr == nil then
+    local cb = nvim.nvim_get_current_buf()
+    winnr = nvim.nvim_call_function("bufwinnr", {cb})
+  end
+  local cwd = nvim.nvim_call_function("getcwd", {})
+
+  low_level.create_filter{
+    title = "Searching for '" .. parameter .. "'",
+    address = cwd,
+    search_command = configuration.search.search_command .. " '" .. parameter .. "'",
+    handler = function(_, ret)
+
+      nvim.nvim_command(
+        winnr .. "wincmd w | " ..
+        (open_cmd or "edit") .. ' +' .. ret.ln .. " " .. cwd .. "/" .. ret.fpath
+      )
+      return true
+    end,
+    local_handler = "handle_vimgrep"
+  }
 end
 
 cartographer.dbg = function()
