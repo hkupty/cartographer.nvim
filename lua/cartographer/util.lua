@@ -1,5 +1,33 @@
 local util = {}
 
+util.path_to_table = function(path)
+  local tbl = {""}
+  for node in path:gmatch("[^/]+") do
+    table.insert(tbl, node)
+  end
+  return tbl
+end
+
+util.drop_last = function(tbl)
+  local sz = #tbl - 1
+  local nxt = function(t, ix)
+    if ix == nil or ix < sz then
+      return next(t, ix)
+    end
+  end
+
+  local new = {}
+  for _, v in nxt, tbl do
+    table.insert(new, v)
+  end
+
+  return new
+end
+
+util.dir_up = function(path)
+   return table.concat(util.drop_last(util.path_to_table(path)), "/")
+end
+
 -- Taken from luarocks
 util.deep_merge = function(dst, src)
    for k, v in pairs(src) do
@@ -36,6 +64,20 @@ end
 
 util.safe_merge = function(to, from)
   return util.deep_merge(util.clone(to), from)
+end
+
+util.map = function(tbl, fn)
+  local new = {}
+
+  for _, v in ipairs(tbl) do
+    table.insert(new, fn(v))
+  end
+
+  return new
+end
+
+util.starts_with = function(str, begining)
+  return begining == "" or string.sub(str, 1, #begining) == begining
 end
 
 return util
