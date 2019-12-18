@@ -132,25 +132,33 @@ cartographer.project = function()
   }
 end
 
-cartographer.files = function(open_cmd)
-  local cb = nvim.nvim_get_current_buf()
-  local winnr = nvim.nvim_call_function("bufwinnr", {cb})
-  local cwd = nvim.nvim_call_function("getcwd", {})
+cartographer.files = function(opts)
+  local winnr = nvim.nvim_get_current_win()
 
-  low_level.create_filter{
+  local job = cartographer.do_at{
     title = "Select file",
-    address = cwd,
     search_command = configuration.files.search_command,
-    handler = function(_, ret)
-      nvim.nvim_command(winnr .. "wincmd w | " .. (open_cmd or "edit") .. " " .. cwd .. "/" .. ret.description)
+    handler = function(session, ret)
+      nvim.nvim_set_current_win(winnr)
+
+      if ret.description == "term://" then
+        nvim.nvim_command("term")
+      elseif opts.handler ~= nil and opts.handler(ret) then
+        return true
+      else
+        nvim.nvim_command((opts.open_cmd or "edit") .. " " .. session.cwd .. "/" .. ret.description)
+      end
       return true
     end
   }
+  job.ui.update(job.session, {description = "term://"})
+
+  return job
+
 end
 
 cartographer.dirty = function(open_cmd)
-  local cb = nvim.nvim_get_current_buf()
-  local winnr = nvim.nvim_call_function("bufwinnr", {cb})
+  local winnr = nvim.nvim_get_current_win()
   local cwd = vim.trim(nvim.nvim_call_function("system", {"git rev-parse --show-toplevel"}))
 
   low_level.create_filter{
@@ -158,7 +166,8 @@ cartographer.dirty = function(open_cmd)
     address = cwd,
     search_command = configuration.dirty.search_command,
     handler = function(_, ret)
-      nvim.nvim_command(winnr .. "wincmd w | " .. (open_cmd or "edit") .. " " .. cwd .. "/" .. ret.description)
+      nvim.nvim_set_current_win(winnr)
+      nvim.nvim_command((open_cmd or "edit") .. " " .. cwd .. "/" .. ret.description)
       return true
     end
   }
@@ -166,8 +175,7 @@ end
 
 
 cartographer.checkout = function(open_cmd)
-  local cb = nvim.nvim_get_current_buf()
-  local winnr = nvim.nvim_call_function("bufwinnr", {cb})
+  local winnr = nvim.nvim_get_current_win()
   local cwd = vim.trim(nvim.nvim_call_function("system", {"git rev-parse --show-toplevel"}))
 
   low_level.create_filter{
@@ -181,7 +189,7 @@ cartographer.checkout = function(open_cmd)
   }
 end
 
-cartographer.do_at = function(handler)
+cartographer.do_at = function(obj)
   local cwd = nvim.nvim_call_function("getcwd", {})
   local payload
 
@@ -192,13 +200,13 @@ cartographer.do_at = function(handler)
       low_level.create_filter(payload(util.dir_up(session.cartographer_address), session))
       return false
     else
-      return handler(session, selected)
+      return obj.handler(session, selected)
     end
   end
   payload = function(address, session)
     local ret ={
-      title = "Select folder",
-      search_command = configuration.folder.search_command,
+      title = obj.title,
+      search_command = obj.search_command,
       address = address,
       handler = this_handler,
       mappings = {['<C-h>'] = "__up_dir"}
@@ -209,12 +217,11 @@ cartographer.do_at = function(handler)
     return ret
   end
 
-  low_level.create_filter(payload(cwd))
+  return low_level.create_filter(payload(cwd))
 end
 
 cartographer.todo = function(open_cmd)
-  local cb = nvim.nvim_get_current_buf()
-  local winnr = nvim.nvim_call_function("bufwinnr", {cb})
+  local winnr = nvim.nvim_get_current_win()
   local cwd = nvim.nvim_call_function("getcwd", {})
 
   low_level.create_filter{
@@ -222,8 +229,8 @@ cartographer.todo = function(open_cmd)
     address = cwd,
     search_command = configuration.rx.search_command .. " '(TODO|HACK|FIXME)'",
     handler = function(_, ret)
+      nvim.nvim_set_current_win(winnr)
       nvim.nvim_command(
-        winnr .. "wincmd w | " ..
         (open_cmd or "edit") .. '+' .. ret.ln .. " " .. cwd .. "/" .. ret.fpath
       )
       return true
@@ -233,8 +240,7 @@ cartographer.todo = function(open_cmd)
 end
 
 cartographer.rx = function(regex, open_cmd)
-  local cb = nvim.nvim_get_current_buf()
-  local winnr = nvim.nvim_call_function("bufwinnr", {cb})
+  local winnr = nvim.nvim_get_current_win()
   local cwd = nvim.nvim_call_function("getcwd", {})
 
   low_level.create_filter{
@@ -242,8 +248,8 @@ cartographer.rx = function(regex, open_cmd)
     address = cwd,
     search_command = configuration.rx.search_command .. " '" .. regex .. "'",
     handler = function(_, ret)
+      nvim.nvim_set_current_win(winnr)
       nvim.nvim_command(
-        winnr .. "wincmd w | " ..
         (open_cmd or "edit") .. '+' .. ret.ln .. " " .. cwd .. "/" .. ret.fpath
       )
       return true
@@ -253,17 +259,18 @@ cartographer.rx = function(regex, open_cmd)
 end
 
 cartographer.cd = function()
-  local cwd = nvim.nvim_call_function("getcwd", {})
-  cartographer.do_at(function(session, ret)
+  cartographer.do_at{
+    title = "Select folder",
+    search_command = configuration.folder.search_command,
+    handler = function(session, ret)
       nvim.nvim_command("tcd " .. session.cwd .. "/" .. ret.description)
       return true
-  end)
+  end}
 end
 
 cartographer.search = function(parameter, open_cmd, winnr)
   if winnr == nil then
-    local cb = nvim.nvim_get_current_buf()
-    winnr = nvim.nvim_call_function("bufwinnr", {cb})
+    winnr = nvim.nvim_get_current_win()
   end
   local cwd = nvim.nvim_call_function("getcwd", {})
 
@@ -272,10 +279,8 @@ cartographer.search = function(parameter, open_cmd, winnr)
     address = cwd,
     search_command = configuration.search.search_command .. " '" .. parameter .. "'",
     handler = function(_, ret)
-
-      nvim.nvim_command(
-        winnr .. "wincmd w | " ..
-        (open_cmd or "edit") .. ' +' .. ret.ln .. " " .. cwd .. "/" .. ret.fpath
+      nvim.nvim_set_current_win(winnr)
+      nvim.nvim_command((open_cmd or "edit") .. ' +' .. ret.ln .. " " .. cwd .. "/" .. ret.fpath
       )
       return true
     end,
@@ -284,24 +289,22 @@ cartographer.search = function(parameter, open_cmd, winnr)
 end
 
 cartographer.buffers = function(opts)
-  local winnr = nvim.nvim_call_function("bufwinnr", {0})
-  local filter = opts.filter or ""
+  local winnr = nvim.nvim_get_current_win()
 
   local impromptu_opts = {
     title = "🧭 Buffers",
     options = {},
     handler = function(_, ret)
-      nvim.nvim_command(winnr .. "wincmd w | " ..  (opts.open_cmd or "edit") .. ret.fpath)
+      nvim.nvim_set_current_win(winnr)
+      nvim.nvim_command((opts.open_cmd or "b ") .. ret.bufnr)
       return true
     end
   }
   local session = impromptu.filter(impromptu_opts)
-  for _, id in ipairs(vim.api.nvim_list_bufs()) do
-    local buf = vim.api.nvim_call_function("getbufinfo", {id})
+  for _, buf in ipairs(vim.api.nvim_call_function("getbufinfo", {})) do
     local name = buf.name
-
-    if name ~= nil and util.starts_with(name, filter) then
-      session:update{description = name, id = id, fpath = name}
+    if name ~= nil then
+      session:update{description = name, id = buf.id, bufnr = buf.bufnr}
     end
   end
 end
