@@ -45,12 +45,16 @@ cartographer.proxy = setmetatable({}, {
 cartographer.cache = cache
 
 low_level.create_filter = function(obj)
-  local key = (obj.type or "~") .. ":" .. obj.address
-  --local reverse = cache.reverse[key]
-  --if reverse ~= nil and obj.reopen ~= false then
-    --impromptu.recent[reverse]:render()
-    --return
-  --end
+  local key
+
+  if obj.reopen ~= nil then
+    key = obj.reopen()
+    local reverse = key ~= nil and cache.reverse[key]
+    if reverse ~= nil then
+      impromptu.recent[reverse]:render()
+      return
+    end
+  end
 
   local impromptu_opts = {
     title = "🧭 " .. obj.title .. " [" .. obj.address .. "]",
@@ -81,7 +85,9 @@ low_level.create_filter = function(obj)
     session = obj.session
   }
 
-  cache.reverse[key] = ui_id
+  if key ~= nil then
+    cache.reverse[key] = ui_id
+  end
 
   local job = vim.fn.jobstart(
       obj.search_command, {
@@ -130,10 +136,11 @@ cartographer.handle_vimgrep = function(ui_id, dt)
   end
 end
 
+-- v1
 cartographer.project = function(opt)
   low_level.create_filter{
-    type = "project",
     title = "Select project",
+    reopen = opt.reopen or function() return "project" end,
     address = opt.root,
     search_command = opt.search_command,
     handler = function(_, ret)
