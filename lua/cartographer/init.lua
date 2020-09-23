@@ -107,7 +107,7 @@ end
 
 cartographer.handle = function(ui_id, dt)
   if cache[ui_id].ui.destroyed then
-    nvim.nvim_call_function("chanclose", {cache[ui_id].job})
+    vim.fn.chanclose(cache[ui_id].job)
   else
     for _, line in ipairs(dt) do
       cache[ui_id].ui.update(cache[ui_id].session, {description = line})
@@ -143,12 +143,12 @@ cartographer.project = function(opt)
   }
 end
 
+-- v1
 cartographer.files = function(opt)
   local winnr = nvim.nvim_get_current_win()
 
   local job = cartographer.do_at{
     title = "Select file",
-    type = "files",
     search_command = opt.search_command,
     custom = opt.custom,
     handler = function(session, ret)
@@ -168,13 +168,13 @@ cartographer.files = function(opt)
 
 end
 
+-- v1
 cartographer.dirty = function(opt)
   local winnr = nvim.nvim_get_current_win()
   local cwd = vim.trim(nvim.nvim_call_function("system", {"git rev-parse --show-toplevel"}))
 
   low_level.create_filter{
     title = "Select file",
-    type = "dirty",
     address = cwd,
     search_command = opt.search_command,
     handler = function(_, ret)
@@ -186,13 +186,13 @@ cartographer.dirty = function(opt)
 end
 
 
+-- v1
 cartographer.checkout = function(opt)
   local winnr = nvim.nvim_get_current_win()
   local cwd = vim.trim(nvim.nvim_call_function("system", {"git rev-parse --show-toplevel"}))
 
   low_level.create_filter{
     title = "Select branch",
-    type = "checkout",
     address = cwd,
     search_command = opt.search_command,
     handler = function(_, ret)
@@ -202,6 +202,7 @@ cartographer.checkout = function(opt)
   }
 end
 
+-- v1
 cartographer.do_at = function(obj)
   local cwd = nvim.nvim_call_function("getcwd", {})
   local payload
@@ -234,13 +235,13 @@ cartographer.do_at = function(obj)
   return low_level.create_filter(payload(cwd))
 end
 
+-- v1
 cartographer.todo = function(open_cmd)
   local winnr = nvim.nvim_get_current_win()
   local cwd = nvim.nvim_call_function("getcwd", {})
 
   low_level.create_filter{
     title = "Project TODOs",
-    type = "todo",
     address = cwd,
     search_command = configuration.rx.search_command .. " '(TODO|HACK|FIXME)'",
     handler = function(_, ret)
@@ -254,13 +255,13 @@ cartographer.todo = function(open_cmd)
   }
 end
 
+-- TODO migrate
 cartographer.rx = function(regex, open_cmd)
   local winnr = nvim.nvim_get_current_win()
   local cwd = nvim.nvim_call_function("getcwd", {})
 
   low_level.create_filter{
     title = "Find",
-    type = "rx",
     address = cwd,
     search_command = configuration.rx.search_command .. " '" .. regex .. "'",
     handler = function(_, ret)
@@ -274,10 +275,10 @@ cartographer.rx = function(regex, open_cmd)
   }
 end
 
+-- v1
 cartographer.cd = function()
   cartographer.do_at{
     title = "Select folder",
-    type = "cd",
     search_command = configuration.folder.search_command,
     custom = {
           {description = "."},
@@ -289,6 +290,7 @@ cartographer.cd = function()
   end}
 end
 
+-- TODO migrate
 cartographer.search = function(opt)
   if opt.winnr == nil then
     opt.winnr = nvim.nvim_get_current_win()
@@ -297,7 +299,6 @@ cartographer.search = function(opt)
 
   low_level.create_filter{
     title = "Searching for '" .. opt.parameter .. "'",
-    type = "search",
     address = cwd,
     search_command = opt.search_command .. " '" .. opt.parameter .. "'",
     handler = function(_, ret)
@@ -315,8 +316,6 @@ cartographer.buffers = function(opts)
 
   local impromptu_opts = {
     title = "🧭 Buffers",
-    type = "buffers",
-    options = {},
     handler = function(_, ret)
       nvim.nvim_set_current_win(winnr)
       nvim.nvim_command((opts.open_cmd or "b ") .. ret.bufnr)
