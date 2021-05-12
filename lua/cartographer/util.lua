@@ -28,6 +28,34 @@ util.dir_up = function(path)
    return table.concat(util.drop_last(util.path_to_table(path)), "/")
 end
 
+util.update = function(dict, key, fn)
+  if fn ~= nil then
+    dict[key] = fn(dict[key])
+  end
+  return dict
+end
+
+util.merge = function(...)
+  local new = {}
+
+  for i = 1, select('#', ...) do
+    local tbl = select(i, ...)
+
+    if tbl ~= nil then
+      for k, v in pairs(tbl) do
+        new[k] = v
+      end
+      for k, v in ipairs(tbl) do
+        new[k] = v
+      end
+    end
+  end
+
+  new = setmetatable(new, nil)
+
+  return new
+end
+
 -- Taken from luarocks
 util.deep_merge = function(dst, src)
    for k, v in pairs(src) do
@@ -70,7 +98,10 @@ util.map = function(tbl, fn)
   local new = {}
 
   for _, v in ipairs(tbl) do
-    table.insert(new, fn(v))
+    local ret = fn(v)
+    if ret ~= nil then
+      table.insert(new, ret)
+    end
   end
 
   return new
