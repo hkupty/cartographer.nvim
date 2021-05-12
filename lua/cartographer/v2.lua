@@ -177,6 +177,14 @@ def.git{
 }
 
 def.git{
+  name = "branch_changed",
+  defaults = {
+    search_command = "git diff --name-only master..HEAD"
+  },
+  handler = open_file
+}
+
+def.git{
   name = "checkout",
   defaults = {
     search_command = "git branch"
