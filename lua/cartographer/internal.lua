@@ -1,3 +1,4 @@
+-- luacheck: globals vim
 local cache = require("cartographer.cache")
 local impromptu = require("impromptu")
 local low_level = {}
@@ -20,7 +21,6 @@ low_level.create_filter = function(obj)
     mappings = obj.mappings,
     handler = obj.handler
   }
-  local ui
   obj.ui = impromptu.new.filter(impromptu_opts)
 
   if obj.session == nil then
@@ -89,7 +89,6 @@ low_level.handle_vimgrep = function(ui_id, dt)
     vim.fn.chanclose(cache[ui_id].job)
   else
     for _, line in ipairs(dt) do
-      tap(line)
       if line ~= "" then
         local match = line:gmatch("[^:]+")
         cache[ui_id].session:update{

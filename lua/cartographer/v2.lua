@@ -1,3 +1,4 @@
+-- luacheck: globals vim
 -- [[ Version 2 of cartographer
 --
 -- This tries to reuse a lot of stuff and centralize the complexity
@@ -22,7 +23,7 @@ local dir_handler = function(handler)
   end
 end
 
-local open_file = function(opt, session, ret)
+local open_file = function(opt, _, ret)
   vim.api.nvim_set_current_win(opt.winnr)
   if ret.self_handler ~= nil then
     return ret.self_handler()
@@ -52,7 +53,7 @@ local traits = {
   },
   git = {
   context_middleware = function(context)
-    local ctx = util.merge(
+    return util.merge(
       (context ~= nil and context() or {}), {
         path = vim.trim(vim.fn.system("git rev-parse --show-toplevel"))
       })
@@ -180,7 +181,7 @@ def.git{
   defaults = {
     search_command = "git branch"
   },
-  handler = function(opt, session, selected)
+  handler = function(_, _, selected)
     vim.fn.system("git checkout " .. selected.description)
   end
 }

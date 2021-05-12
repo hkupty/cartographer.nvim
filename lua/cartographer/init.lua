@@ -62,7 +62,6 @@ low_level.create_filter = function(obj)
     mappings = obj.mappings,
     handler = obj.handler
   }
-  local ui
   obj.ui = impromptu.new.filter(impromptu_opts)
 
   if obj.session == nil then
@@ -195,7 +194,6 @@ end
 
 -- v1
 cartographer.checkout = function(opt)
-  local winnr = nvim.nvim_get_current_win()
   local cwd = vim.trim(nvim.nvim_call_function("system", {"git rev-parse --show-toplevel"}))
 
   low_level.create_filter{
