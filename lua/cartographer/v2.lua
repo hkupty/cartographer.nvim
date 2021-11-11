@@ -17,6 +17,12 @@ local dir_handler = function(handler)
       vim.fn.chanclose(cache[session.cartographer_ui_id].job)
       opt.path = util.dir_up(opt.path)
       return opt
+    elseif selected == "__increase_scope" then
+      opt.depth = opt.depth + 1
+      return opt
+    elseif selected == "__decrease_scope" then
+      opt.depth = opt.depth - 1
+      return opt
     else
       return handler(opt, session, selected)
     end
@@ -47,7 +53,12 @@ end
 local traits = {
   dir = {
     defaults = {
-      mappings = {['<C-h>'] = "__up_dir"}
+      depth = 2,
+      mappings = {
+        ['<C-h>'] = "__up_dir",
+        ['<C-j>'] = "__decrease_scope",
+        ['<C-k>'] = "__increase_scope",
+      }
     },
     middleware = dir_handler
   },
@@ -66,6 +77,14 @@ local apply_trait = function(opt, trait)
   util.update(opt, "handler", trait.middleware)
   util.update(opt, "context", trait.context_middleware)
   return opt
+end
+
+local ctx_val = function(ctx)
+  if type(ctx) == "function" then
+    return ctx()
+  else
+    return ctx
+  end
 end
 
 local v2 = {}
@@ -112,7 +131,7 @@ local define = function(opt)
               end,
             },
             -- Dynamic values
-            (opt.context ~= nil and opt.context() or {}),
+            (opt.context ~= nil and ctx_val(opt.context) or {}),
             -- User-provided arguments
             cfg)
 
