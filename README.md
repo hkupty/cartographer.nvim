@@ -1,3 +1,9 @@
+# This project is being archived.
+
+Sorry for the inconvenience, but it has became a burden to maintain that many plugins in the recent years and this one can be deprecated in favor of [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim).
+
+I strongly encourage you to make a switch, but if you want to continue using cartographer.nvim, feel free to fork it and keep it rolling.
+
 # Cartographer.nvim
 
 Simplify project navigation within neovim.
